@@ -22,6 +22,11 @@ func main() {
 		fmt.Println(err)
 	}
 	err = returnError(10, 10)
+	/*if err != nil {
+		//log.Println(err)
+		panic(err)
+		os.Exit(10)
+	}*/
 	if err == nil {
 		fmt.Println("No error today in returnError()")
 	} else {
