@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
 	"io"
 	"os"
 )
@@ -15,4 +17,13 @@ func main() {
 	}
 	io.WriteString(os.Stdout, myString)
 	io.WriteString(os.Stdout, "\n")
+
+	var f *os.File
+	f = os.Stdin
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		fmt.Println(">", scanner.Text())
+	}
 }
