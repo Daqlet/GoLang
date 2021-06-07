@@ -54,8 +54,6 @@ func PRINT() {
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Println("Sonya`s ass?")
-	fmt.Println("too hot!))♥")
 	for scanner.Scan() {
 		text := scanner.Text()
 		text = strings.TrimSpace(text)
