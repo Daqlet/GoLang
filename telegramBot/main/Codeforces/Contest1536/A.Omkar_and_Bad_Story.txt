@@ -1,0 +1,54 @@
+#include <bits/stdc++.h>
+using namespace std;
+#define ll long long
+
+bool good(map<int, int> &m) {
+    bool gd = 1;
+    for(auto i = m.begin(); i != m.end(); ++i) {
+        auto j = i; ++j;
+        while(j != m.end()) {
+            if(!m[abs(i->first - j->first)]) {
+                m[abs(i->first - j->first)] = 1;
+                gd = 0;
+            }
+            ++j;
+        }
+    }
+    return gd;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(0); cout.tie(0);
+    int t = 1; cin >> t;
+    while(t--) {
+        int n; cin >> n;
+        vector<int> a(n);
+        map<int, int> m;
+        bool no = 0;
+        for(int i = 0; i < n; ++i) {
+            cin >> a[i];
+            if(a[i] < 0) no = 1;
+            m[a[i]]++;
+        }      
+        if(no) cout << "No" << endl; 
+        else {
+            cout << "Yes" << endl;
+            while(!good(m)) {
+
+            }
+            int k = 0;
+            for(auto i = m.rbegin(); i != m.rend(); i++) {
+                k += i->second;
+            }
+            cout << k << endl;
+            for(auto i = m.rbegin(); i != m.rend(); i++) {
+                for(int j = 0; j < i->second; ++j) {
+                    cout << i->first << " ";
+                }
+            }
+            cout << endl;
+        }
+    }
+    return 0;
+}
