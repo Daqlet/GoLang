@@ -1,86 +1,46 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
-	"io"
+	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"io/ioutil"
-	"mime/multipart"
+	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-var lastContestId int = 10000
-var botUrl string
+var lastContestId int32
+var bot, err_ = tgbotapi.NewBotAPI("1648899629:AAEpJWaRSxBBL0IoW5yJQ4_0uoHr7Qg1cyg")
+var SolutionCount = make(map[string]int)
 
 func main() {
-	bot, err := tgbotapi.NewBotAPI("1648899629:AAEpJWaRSxBBL0IoW5yJQ4_0uoHr7Qg1cyg")
+	if err_ != nil {
+		panic(err_)
+	}
+	bot.Debug = true
+	upd := tgbotapi.NewUpdate(0)
+	upd.Timeout = 60
+	updates, err := bot.GetUpdatesChan(upd)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Print(bot)
-	botToken := "1648899629:AAEpJWaRSxBBL0IoW5yJQ4_0uoHr7Qg1cyg"
-	botApi := "https://api.telegram.org/bot"
-	botUrl = botApi + botToken
-	offset := 0
-	for {
-		updates, err := getUpdates(botUrl, offset)
+	for update := range updates {
+		if update.Message == nil {
+			continue
+		}
+		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+		err = respond(update.Message.Text, update)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(updates)
-		for _, update := range updates {
-			err = respond(botUrl, update)
-			if err != nil {
-				panic(err)
-			}
-			offset = update.Update_id + 1
-		}
 	}
 }
 
-func getUpdates(botUrl string, offset int) ([]Update, error) {
-	source, err := http.Get(botUrl + "/getUpdates?offset=" + strconv.Itoa(offset))
-	if err != nil {
-		return nil, err
-	}
-	defer source.Body.Close()
-	body, err_ := ioutil.ReadAll(source.Body)
-	if err_ != nil {
-		return nil, err_
-	}
-	result := Respond{}
-	err_ = json.Unmarshal(body, &result)
-	if err_ != nil {
-		return nil, err_
-	}
-	return result.Update, err_
-}
-
-func respond(botURL string, update Update) error {
-	handle := update.Message.Text
-	err := findHandle(handle, update.Message.Chat.Id)
-	if err != nil {
-		message := BotMessage{}
-		message.ChatID = update.Message.Chat.Id
-		message.Text = "Incorrect handle"
-		buffer, err := json.Marshal(message)
-		if err != nil {
-			return err
-		}
-		_, err = http.Post(botURL+"/sendMessage", "application/json", bytes.NewBuffer(buffer))
-		return err
-	}
-	return err
-}
-
-func findHandle(handle string, chatId int) error {
+func respond(handle string, update tgbotapi.Update) error {
+	SetLastContestID()
 	Client := http.Client{}
 	Response, err := Client.Get("https://codeforces.com/api/user.status?handle=" + handle + "&from=1&count=20")
 	if err != nil {
@@ -95,15 +55,24 @@ func findHandle(handle string, chatId int) error {
 	if err != nil {
 		return err
 	}
+	if response.Status == "FAILED" {
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, response.Comment)
+		msg.ReplyToMessageID = update.Message.MessageID
+		_, err := bot.Send(msg)
+		if err != nil {
+			panic(err)
+		}
+		return nil
+	}
 	for _, submission := range response.Submissions {
 		if submission.Verdict == "OK" {
-			AddSubmission(submission, chatId)
+			AddSubmission(submission, update.Message.Chat.ID)
 		}
 	}
 	return nil
 }
 
-func AddSubmission(submission Submission, chatId int) {
+func AddSubmission(submission Submission, chatId int64) {
 	TYPE := "contest"
 	if submission.ContestId > lastContestId {
 		TYPE = "gym"
@@ -114,55 +83,29 @@ func AddSubmission(submission Submission, chatId int) {
 	ParseAndGetCode(url, submission, chatId)
 }
 
-func ParseAndGetCode(url string, submission Submission, chatId int) {
+func ParseAndGetCode(url string, submission Submission, chatId int64) {
 	Code := GetCode(url)
 	path := "Codeforces/Contest" + strconv.Itoa(int(submission.ContestId))
 	CreateFolder("Codeforces")
 	CreateFolder(path)
-	problemName := ParseProblemName(submission) + ".txt"
+	problemName := ParseProblemName(submission) + GetExtension(submission.ProgrammingLanguage)
 	path += "/" + problemName
 	err := os.WriteFile(path, []byte(Code), 0644)
 	if err != nil {
 		panic(err.Error())
 	}
-
-	file, _ := os.Open(path)
-	defer file.Close()
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, _ := writer.CreateFormFile("file", filepath.Base(file.Name()))
-	io.Copy(part, file)
-	writer.Close()
-
-	r, _ := http.NewRequest("POST", botUrl+"/SendDocument", body)
-	r.Header.Add("Content-Type", writer.FormDataContentType())
-	client := &http.Client{}
-	client.Do(r)
-
-	/*
-
-		message := BotMessage{}
-		message.ChatID = chatId
-		message.Text = string(file)
-		buf, err := json.Marshal(message)
-		if err != nil {
-			panic(err)
-		}
-		_, err = http.Post(botUrl+"/sendMessage", "application/json", bytes.NewBuffer(buf))
-		if err != nil {
-			panic(err)
-		}
-		/*
-			message := BotMessage{}
-			message.ChatID = ChatID
-			message.Document =
-			buffer, err := json.Marshal(message)
-			if err != nil {
-				return err
-			}
-			_, err = http.Post(botURL+"/sendDocument", "application/json", bytes.NewBuffer(buffer))
-	*/
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+	fileBytes := tgbotapi.FileBytes{
+		Name:  problemName,
+		Bytes: file,
+	}
+	_, err = bot.Send(tgbotapi.NewDocumentUpload(int64(chatId), fileBytes))
+	if err != nil {
+		panic(err)
+	}
 }
 
 func GetCode(url string) string {
@@ -212,6 +155,10 @@ func ParseProblemName(submission Submission) string {
 	for i := 0; i < len(submission.Problem.Name); i++ {
 		problem += goodLetter(rune(submission.Problem.Name[i]))
 	}
+	if SolutionCount[problem] > 0 {
+		problem += "_version_" + strconv.Itoa(SolutionCount[problem]+1)
+	}
+	SolutionCount[problem] += 1
 	return problem
 }
 
@@ -220,4 +167,103 @@ func goodLetter(letter rune) string {
 		return string(letter)
 	}
 	return "_"
+}
+
+func GetExtension(Language string) string {
+	switch Language {
+	case "GNU C++17", "GNU C++14", "GNU C++11", "GNU C++", "MS C++ 2017", "MS C++", "GNU C++17 (64)":
+		{
+			return ".cpp"
+		}
+	case "GNU C11":
+		{
+			return ".c"
+		}
+	case "Node.js", "JavaScript":
+		{
+			return ".js"
+		}
+	case "Scala":
+		{
+			return ".scala"
+		}
+	case "Rust":
+		{
+			return ".rs"
+		}
+	case "Ruby 3":
+		{
+			return ".rb"
+		}
+	case "PyPy 3", "PyPy 2", "Python 3 + libs", "Python 3", "Python 2":
+		{
+			return ".py"
+		}
+	case "PHP":
+		{
+			return ".php"
+		}
+	case "Perl":
+		{
+			return ".pl"
+		}
+	case "PascalABC.NET", "FPC", "Delphi":
+		{
+			return ".pas"
+		}
+	case "Ocaml":
+		{
+			return ".ml"
+		}
+	case "Kotlin":
+		{
+			return ".kt"
+		}
+	case "Java 8", "Java 11":
+		{
+			return ".java"
+		}
+	case "Haskell":
+		{
+			return ".hs"
+		}
+	case "Go":
+		{
+			return ".go"
+		}
+	case "D":
+		{
+			return ".d"
+		}
+	case "Mono C#", ".NET Core C#":
+		{
+			return ".cs"
+		}
+
+	default:
+		{
+			return ".txt"
+		}
+	}
+}
+
+func SetLastContestID() {
+	Response, ok := http.Get("https://codeforces.com/problemset")
+	if ok != nil {
+		panic(ok.Error())
+	}
+	AsBytes, ok := ioutil.ReadAll(Response.Body)
+	if ok != nil {
+		panic(ok.Error())
+	}
+	AsString := string(AsBytes)
+	keyword := "/problemset/problem/"
+	Id := strings.Index(AsString, keyword)
+	if Id == -1 {
+		panic("Can not find ID of last contest")
+	}
+	lastContestId = 0
+	for i := 0; i < 4; i += 1 {
+		lastContestId = lastContestId*10 + rune(AsString[len(keyword)+Id+i]) - '0'
+	}
 }
