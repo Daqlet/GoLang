@@ -1,4 +1,5 @@
-This is a telegram bot. The bot's work is that:
+This is a telegram bot. This Bot sends successful submissions from codeforces.com. 
+The bot's work is that:
 - asks for the user handle of the site https://codeforces.com/
 - finds this user using http requests
 - finds the last successful attempts of this user
