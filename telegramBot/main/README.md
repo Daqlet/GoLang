@@ -1,5 +1,5 @@
 This is a telegram bot. The bot's work is that:
-- asks for the user handle of the site codeforces.com
+- asks for the user handle of the site https://codeforces.com/
 - finds this user using http requests
 - finds the last successful attempts of this user
 - using http requests we find the solution code
