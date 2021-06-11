@@ -15,7 +15,7 @@ import (
 )
 
 var lastContestId int32
-var bot, err_ = tgbotapi.NewBotAPI("1648899629:AAEpJWaRSxBBL0IoW5yJQ4_0uoHr7Qg1cyg")
+var bot, err_ = tgbotapi.NewBotAPI("MyApi")
 var SolutionCount = make(map[string]int)
 
 func main() {
