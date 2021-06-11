@@ -7,6 +7,7 @@ import (
 	"os"
 )
 
+/*
 type Record struct {
 	Name    string
 	Surname string
@@ -17,7 +18,7 @@ type Telephone struct {
 	Mobile bool
 	Number string
 }
-
+*/
 func loadFromJson(filename string, key interface{}) error {
 	in, err := os.Open(filename)
 	if err != nil {
