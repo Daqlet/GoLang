@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-var bot, err_ = tgbotapi.NewBotAPI("1648899629:AAEpJWaRSxBBL0IoW5yJQ4_0uoHr7Qg1cyg")
+var bot, err_ = tgbotapi.NewBotAPI("myApi")
 
 func main() {
 	if err_ != nil {
