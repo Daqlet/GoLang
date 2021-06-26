@@ -6,10 +6,10 @@ import (
 )
 
 var (
-	n   int = 10
-	sum int = 0
-	m   sync.Mutex
-	ch  = make(chan int, 10)
+	n int = 10
+	//sum int = 0
+	m  sync.Mutex
+	ch = make(chan int, 10)
 )
 
 func fillChan(w *sync.WaitGroup) {
